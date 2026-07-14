@@ -1,0 +1,141 @@
+一、数据生成代码（本地 Python 运行）
+import pandas as pd
+import numpy as np
+
+np.random.seed(42)
+
+n_normal = 150
+n_fault = 150
+n_features = 30
+
+normal_data = np.random.normal(loc=0, scale=1, size=(n_normal, n_features))
+normal_label = np.zeros((n_normal, 1))
+
+fault_data = np.random.normal(loc=1.8, scale=1.5, size=(n_fault, n_features))
+fault_label = np.ones((n_fault, 1))
+
+data = np.vstack((np.hstack((normal_label, normal_data)),
+                  np.hstack((fault_label, fault_data))))
+np.random.shuffle(data)
+
+columns = ['label'] + [f'feature_{i}' for i in range(1, n_features + 1)]
+df = pd.DataFrame(data, columns=columns)
+df.to_csv('motor_data.csv', index=False)
+
+print(f"数据集已生成：motor_data.csv，共 {len(df)} 行，{len(df.columns)} 列")
+
+二、RDS 建表代码（MySQL）
+CREATE TABLE motor_data (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    label INT COMMENT '0=正常, 1=故障'
+);
+
+ALTER TABLE motor_data ADD COLUMN feature_1 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_2 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_3 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_4 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_5 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_6 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_7 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_8 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_9 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_10 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_11 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_12 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_13 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_14 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_15 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_16 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_17 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_18 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_19 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_20 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_21 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_22 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_23 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_24 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_25 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_26 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_27 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_28 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_29 DOUBLE;
+ALTER TABLE motor_data ADD COLUMN feature_30 DOUBLE;
+
+三、MaxCompute 建表代码（ODPS SQL）
+CREATE TABLE IF NOT EXISTS motor_data_ods (
+    label BIGINT COMMENT '标签：0=正常，1=故障',
+    feature_1 DOUBLE COMMENT '第1个特征',
+    feature_2 DOUBLE COMMENT '第2个特征',
+    feature_3 DOUBLE COMMENT '第3个特征',
+    feature_4 DOUBLE COMMENT '第4个特征',
+    feature_5 DOUBLE COMMENT '第5个特征',
+    feature_6 DOUBLE COMMENT '第6个特征',
+    feature_7 DOUBLE COMMENT '第7个特征',
+    feature_8 DOUBLE COMMENT '第8个特征',
+    feature_9 DOUBLE COMMENT '第9个特征',
+    feature_10 DOUBLE COMMENT '第10个特征',
+    feature_11 DOUBLE COMMENT '第11个特征',
+    feature_12 DOUBLE COMMENT '第12个特征',
+    feature_13 DOUBLE COMMENT '第13个特征',
+    feature_14 DOUBLE COMMENT '第14个特征',
+    feature_15 DOUBLE COMMENT '第15个特征',
+    feature_16 DOUBLE COMMENT '第16个特征',
+    feature_17 DOUBLE COMMENT '第17个特征',
+    feature_18 DOUBLE COMMENT '第18个特征',
+    feature_19 DOUBLE COMMENT '第19个特征',
+    feature_20 DOUBLE COMMENT '第20个特征',
+    feature_21 DOUBLE COMMENT '第21个特征',
+    feature_22 DOUBLE COMMENT '第22个特征',
+    feature_23 DOUBLE COMMENT '第23个特征',
+    feature_24 DOUBLE COMMENT '第24个特征',
+    feature_25 DOUBLE COMMENT '第25个特征',
+    feature_26 DOUBLE COMMENT '第26个特征',
+    feature_27 DOUBLE COMMENT '第27个特征',
+    feature_28 DOUBLE COMMENT '第28个特征',
+    feature_29 DOUBLE COMMENT '第29个特征',
+    feature_30 DOUBLE COMMENT '第30个特征'
+)
+COMMENT '电机数据原始表（同步自RDS）';
+
+四、数据清洗代码（PyODPS 节点）
+from odps import ODPS
+import numpy as np
+import pandas as pd
+
+# 获取ODPS对象
+o = get_odps()
+
+# 读取源表
+table = o.get_table('motor_data_ods')
+df = table.to_pandas(limit=None)
+print(f"原始数据行数: {len(df)}")
+
+# 3σ截断清洗
+feature_cols = [f'feature_{i}' for i in range(1, 31)]
+for col in feature_cols:
+    mean = df[col].mean()
+    std = df[col].std()
+    lower = mean - 3 * std
+    upper = mean + 3 * std
+    df[col] = df[col].clip(lower, upper)
+
+# 定义表结构
+table_schema = """
+label bigint, feature_1 double, feature_2 double, feature_3 double,
+feature_4 double, feature_5 double, feature_6 double,
+feature_7 double, feature_8 double, feature_9 double,
+feature_10 double, feature_11 double, feature_12 double,
+feature_13 double, feature_14 double, feature_15 double,
+feature_16 double, feature_17 double, feature_18 double,
+feature_19 double, feature_20 double, feature_21 double,
+feature_22 double, feature_23 double, feature_24 double,
+feature_25 double, feature_26 double, feature_27 double,
+feature_28 double, feature_29 double, feature_30 double
+"""
+
+# 创建表
+o.create_table('motor_data_cleaned', table_schema, if_not_exists=True)
+
+# 写入数据
+o.write_table('motor_data_cleaned', df.values.tolist(), overwrite=True)
+print(f"清洗后数据行数: {len(df)}")
